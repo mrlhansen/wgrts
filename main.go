@@ -10,9 +10,11 @@ import (
 func main() {
 	var wgdev string
 	var proto string
+	var interval uint
 
 	flag.StringVar(&wgdev, "wgdev", "", "name of the wireguard network device")
 	flag.StringVar(&proto, "proto", "", "filter routes by protocol")
+	flag.UintVar(&interval, "interval", 10, "interval for scanning the routing table (in seconds)")
 	flag.Parse()
 
 	if wgdev == "" {
@@ -25,7 +27,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	rts, ok := FindRoutes(wgdev, proto)
+	rts, ok := ScanRoutes(wgdev, proto)
 	if !ok {
 		os.Exit(1)
 	}
@@ -34,15 +36,17 @@ func main() {
 		wg.UpdatePeerRoute(&k)
 	}
 
-	for {
-		time.Sleep(10 * time.Second)
+	d := time.Duration(interval) * time.Second
 
-		ok := wg.FindInterfacePeers()
+	for {
+		time.Sleep(d)
+
+		ok := wg.ScanInterfacePeers()
 		if !ok {
 			continue
 		}
 
-		rts, ok := FindRoutes(wgdev, proto)
+		rts, ok := ScanRoutes(wgdev, proto)
 		if !ok {
 			continue
 		}

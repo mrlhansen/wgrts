@@ -14,7 +14,7 @@ type Route struct {
 	Nexthop netip.Addr
 }
 
-func FindRoutes(device, proto string) ([]Route, bool) {
+func ScanRoutes(device, proto string) ([]Route, bool) {
 	cmd := []string{"ip", "-o", "route", "show", "table", "all", "dev", device}
 	if proto != "" {
 		cmd = append(cmd, "proto", proto)

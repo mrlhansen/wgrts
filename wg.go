@@ -42,7 +42,7 @@ func (p *Peer) ListAllowedIPs() string {
 	return strings.Join(s, ",")
 }
 
-func (wg *Device) FindInterfaceIPs() bool {
+func (wg *Device) ScanInterfaceIPs() bool {
 	cmd := []string{"ip", "-o", "addr", "list", "dev", wg.Name}
 	stdout, stderr, ok := RunCommand(cmd)
 	if !ok {
@@ -89,7 +89,7 @@ func (wg *Device) FindInterfaceIPs() bool {
 	return true
 }
 
-func (wg *Device) FindInterfacePeers() bool {
+func (wg *Device) ScanInterfacePeers() bool {
 	cmd := []string{"wg", "showconf", wg.Name}
 	stdout, stderr, ok := RunCommand(cmd)
 	if !ok {
@@ -245,11 +245,11 @@ func NewInterface(device string) *Device {
 		Peers: map[string]Peer{},
 	}
 
-	if !wg.FindInterfaceIPs() {
+	if !wg.ScanInterfaceIPs() {
 		return nil
 	}
 
-	if !wg.FindInterfacePeers() {
+	if !wg.ScanInterfacePeers() {
 		return nil
 	}
 
