@@ -42,15 +42,6 @@ func (p *Peer) ListAllowedIPs() string {
 	return strings.Join(s, ",")
 }
 
-func (wg *Device) AddOrUpdatePeer(p *Peer) {
-	if len(p.PublicKey) > 0 {
-		if _, ok := wg.Peers[p.PublicKey]; !ok {
-			log.Printf("%s: adding peer: %s", wg.Name, p.PublicKey)
-		}
-		wg.Peers[p.PublicKey] = *p
-	}
-}
-
 func (wg *Device) FindInterfaceIPs() bool {
 	cmd := []string{"ip", "-o", "addr", "list", "dev", wg.Name}
 	stdout, stderr, ok := RunCommand(cmd)
@@ -63,6 +54,7 @@ func (wg *Device) FindInterfaceIPs() bool {
 	r := bytes.NewReader(b)
 	s := bufio.NewScanner(r)
 	re := regexp.MustCompile(`inet6?\s+(\S+)`)
+	ips := []netip.Prefix{}
 
 	for s.Scan() {
 		line := s.Text()
@@ -71,23 +63,29 @@ func (wg *Device) FindInterfaceIPs() bool {
 		if len(m) != 2 {
 			continue
 		}
-		v := m[1]
 
-		prefix, err := netip.ParsePrefix(v)
+		prefix, err := netip.ParsePrefix(m[1])
 		if err != nil {
 			log.Printf("%s: failed to parse address: %v", wg.Name, err)
 			continue
 		}
 
-		if !slices.Contains(wg.IPs, prefix) {
-			log.Printf("%s: adding address: %s", wg.Name, prefix)
-			wg.IPs = append(wg.IPs, prefix)
+		ips = append(ips, prefix)
+	}
+
+	for _, v := range wg.IPs {
+		if !slices.Contains(ips, v) {
+			log.Printf("%s: removing address: %s", wg.Name, v)
 		}
 	}
 
-	// TODO: remove stale IPs?
-	// secondary list with found ips and then check if any in wg.IPs is not in that list
+	for _, v := range ips {
+		if !slices.Contains(wg.IPs, v) {
+			log.Printf("%s: adding address: %s", wg.Name, v)
+		}
+	}
 
+	wg.IPs = ips
 	return true
 }
 
@@ -99,18 +97,22 @@ func (wg *Device) FindInterfacePeers() bool {
 		return false
 	}
 
-	p := &Peer{}
 	b := []byte(stdout)
 	r := bytes.NewReader(b)
 	s := bufio.NewScanner(r)
 	re := regexp.MustCompile(`(\S+)\s*=\s*(.+)`)
 
+	p := Peer{}
+	peers := map[string]Peer{}
+
 	for s.Scan() {
 		line := strings.TrimSpace(s.Text())
 
 		if strings.HasPrefix(line, "[Peer]") {
-			wg.AddOrUpdatePeer(p)
-			p = &Peer{}
+			if len(p.PublicKey) > 0 {
+				peers[p.PublicKey] = p
+				p = Peer{}
+			}
 		}
 
 		m := re.FindStringSubmatch(line)
@@ -144,11 +146,23 @@ func (wg *Device) FindInterfacePeers() bool {
 		}
 	}
 
-	wg.AddOrUpdatePeer(p)
+	if len(p.PublicKey) > 0 {
+		peers[p.PublicKey] = p
+	}
 
-	// TODO: remove stale peers?
-	// secondary list with found public keys and then check if any in wg.Peers is not in that list
+	for v := range wg.Peers {
+		if _, ok := peers[v]; !ok {
+			log.Printf("%s: removing peer: %s", wg.Name, v)
+		}
+	}
 
+	for v := range peers {
+		if _, ok := wg.Peers[v]; !ok {
+			log.Printf("%s: adding peer: %s", wg.Name, v)
+		}
+	}
+
+	wg.Peers = peers
 	return true
 }
 

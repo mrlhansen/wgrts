@@ -14,27 +14,26 @@ type Route struct {
 	Nexthop netip.Addr
 }
 
-func FindRoutes(device string) ([]Route, bool) {
+func FindRoutes(device, proto string) ([]Route, bool) {
 	cmd := []string{"ip", "-o", "route", "show", "table", "all", "dev", device}
+	if proto != "" {
+		cmd = append(cmd, "proto", proto)
+	}
+
 	stdout, stderr, ok := RunCommand(cmd)
 	if !ok {
 		log.Printf("%s: failed to query routes: %s", device, strings.ToLower(stderr))
 		return nil, false
 	}
 
-	rts := []Route{}
-
 	b := []byte(stdout)
 	r := bytes.NewReader(b)
 	s := bufio.NewScanner(r)
 	re := regexp.MustCompile(`(\S+)\s+via\s+(\S+)`)
+	rts := []Route{}
 
 	for s.Scan() {
 		line := s.Text()
-
-		// if !strings.Contains(line, "proto bird") { // might not be needed
-		// 	continue
-		// }
 
 		m := re.FindStringSubmatch(line)
 		if len(m) != 3 {

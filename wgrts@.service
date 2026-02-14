@@ -1,0 +1,11 @@
+[Unit]
+Description=Wireguard route synchronization
+BindsTo=wg-quick@%i.service
+After=wg-quick@%i.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/wgrts -proto bird -wgdev %i
+
+[Install]
+WantedBy=multi-user.target

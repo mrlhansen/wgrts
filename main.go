@@ -8,22 +8,24 @@ import (
 )
 
 func main() {
-	var device string
+	var wgdev string
+	var proto string
 
-	flag.StringVar(&device, "wgdev", "", "name of the wireguard network interface")
+	flag.StringVar(&wgdev, "wgdev", "", "name of the wireguard network device")
+	flag.StringVar(&proto, "proto", "", "filter routes by protocol")
 	flag.Parse()
 
-	if device == "" {
-		fmt.Printf("usage: %s -wgdev <dev>\n", os.Args[0])
+	if wgdev == "" {
+		fmt.Printf("usage: %s [options] -wgdev <dev>\n", os.Args[0])
 		return
 	}
 
-	wg := NewInterface(device)
+	wg := NewInterface(wgdev)
 	if wg == nil {
 		os.Exit(1)
 	}
 
-	rts, ok := FindRoutes(wg.Name)
+	rts, ok := FindRoutes(wgdev, proto)
 	if !ok {
 		os.Exit(1)
 	}
@@ -35,7 +37,12 @@ func main() {
 	for {
 		time.Sleep(10 * time.Second)
 
-		rts, ok := FindRoutes(wg.Name)
+		ok := wg.FindInterfacePeers()
+		if !ok {
+			continue
+		}
+
+		rts, ok := FindRoutes(wgdev, proto)
 		if !ok {
 			continue
 		}
