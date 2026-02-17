@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"log"
 	"net/netip"
 	"regexp"
@@ -40,7 +41,16 @@ func ScanRoutes(device, proto string) ([]Route, bool) {
 			continue
 		}
 
-		prefix, err := netip.ParsePrefix(m[1])
+		v := m[1]
+		if !strings.ContainsRune(v, '/') {
+			if strings.ContainsRune(v, ':') {
+				v = fmt.Sprintf("%s/128", v)
+			} else {
+				v = fmt.Sprintf("%s/32", v)
+			}
+		}
+
+		prefix, err := netip.ParsePrefix(v)
 		if err != nil {
 			continue
 		}
